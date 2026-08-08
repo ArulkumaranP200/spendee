@@ -51,6 +51,13 @@ export default function LockScreen() {
     }
   }, [biometricAvailable, lockSettings.enabled, lockSettings.biometricEnabled]);
 
+  // If lock is disabled, skip to main app
+  useEffect(() => {
+    if (!lockSettings.enabled) {
+      router.replace('/(tabs)');
+    }
+  }, [lockSettings.enabled, router]);
+
   const attemptBiometric = async () => {
     if (!biometricAvailable) return;
 
@@ -116,9 +123,6 @@ export default function LockScreen() {
 
   // If lock is disabled, skip to main app
   if (!lockSettings.enabled) {
-    useEffect(() => {
-      router.replace('/(tabs)');
-    }, []);
     return null;
   }
 
