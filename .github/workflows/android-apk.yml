@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   build-apk:
-    name: Build debug APK
+    name: Build installable APK
     runs-on: ubuntu-latest
 
     steps:
@@ -51,13 +51,18 @@ jobs:
       - name: Generate native Android project
         run: pnpm exec expo prebuild --platform android --no-install
 
-      - name: Build debug APK
+      - name: Build APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        # Debug builds don't embed the JS bundle (they expect a running Metro
+        # dev server), so a debug APK won't open when installed standalone.
+        # The `release` build type falls back to the debug keystore for
+        # signing when no upload keystore is configured, so this produces a
+        # standalone-installable APK without needing release signing secrets.
+        run: ./gradlew assembleRelease --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: spendee-debug-apk
-          path: android/app/build/outputs/apk/debug/*.apk
+          name: spendee-apk
+          path: android/app/build/outputs/apk/release/*.apk
           retention-days: 14
