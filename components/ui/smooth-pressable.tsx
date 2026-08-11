@@ -56,7 +56,11 @@ export function SmoothPressable({
     transform: [{ scale: scale.value }],
   }));
 
-  const pressableState: PressableStateCallbackType = { pressed, hovered: false };
+  // `as` (not a `:` annotation) because expo's react-native-web type
+  // augmentation adds a `hovered` field to PressableStateCallbackType in
+  // some setups but not others — a direct annotation would trigger an
+  // excess-property error wherever `hovered` isn't part of the type.
+  const pressableState = { pressed, hovered: false } as PressableStateCallbackType;
   const resolvedDynamicStyle =
     typeof dynamicStyle === 'function' ? dynamicStyle(pressableState) : dynamicStyle;
 
