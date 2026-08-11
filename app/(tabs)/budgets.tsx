@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { ScrollView, View, Text, FlatList, TextInput, Pressable, Alert } from 'react-native';
+import { ScrollView, View, Text, FlatList, TextInput, Alert } from 'react-native';
 import { ScreenContainer } from '@/components/screen-container';
 import { useBudgets } from '@/lib/finance-context';
 import { useFinance } from '@/lib/finance-context';
 import { useSettings } from '@/lib/finance-context';
 import { formatCurrency, calculateBudgetProgress, getBudgetStatusColor, getTransactionsForMonth, getCurrentMonthYear } from '@/lib/finance-utils';
 import { useColors } from '@/hooks/use-colors';
+import { SmoothPressable } from '@/components/ui/smooth-pressable';
 
 export default function BudgetsScreen() {
   const { budgets, addBudget, deleteBudget } = useBudgets();
@@ -66,8 +67,8 @@ export default function BudgetsScreen() {
   };
 
   const renderBudget = ({ item }: { item: any }) => (
-    <Pressable
-      style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
+    <SmoothPressable
+      dynamicStyle={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
       onLongPress={() => deleteBudget(item.id)}
       className="bg-surface rounded-lg p-4 mb-3 border border-border"
     >
@@ -117,7 +118,7 @@ export default function BudgetsScreen() {
           }}
         />
       </View>
-    </Pressable>
+    </SmoothPressable>
   );
 
   return (
@@ -127,9 +128,9 @@ export default function BudgetsScreen() {
         <View className="px-4 py-4 gap-4">
           <View className="flex-row justify-between items-center">
             <Text className="text-2xl font-bold text-foreground">Budgets</Text>
-            <Pressable
+            <SmoothPressable
               onPress={() => setShowForm(!showForm)}
-              style={({ pressed }) => [
+              dynamicStyle={({ pressed }) => [
                 {
                   backgroundColor: pressed ? '#1a3a7a' : '#1e40af',
                   opacity: pressed ? 0.8 : 1,
@@ -138,7 +139,7 @@ export default function BudgetsScreen() {
               className="px-4 py-2 rounded-full"
             >
               <Text className="text-white font-semibold">+ Add</Text>
-            </Pressable>
+            </SmoothPressable>
           </View>
 
           {/* Add Budget Form */}
@@ -163,9 +164,9 @@ export default function BudgetsScreen() {
                 />
               </View>
               <View className="flex-row gap-2">
-                <Pressable
+                <SmoothPressable
                   onPress={handleAddBudget}
-                  style={({ pressed }) => [
+                  dynamicStyle={({ pressed }) => [
                     {
                       backgroundColor: pressed ? '#1a3a7a' : '#1e40af',
                       opacity: pressed ? 0.8 : 1,
@@ -174,13 +175,13 @@ export default function BudgetsScreen() {
                   className="flex-1 py-2 rounded items-center"
                 >
                   <Text className="text-white font-semibold">Save</Text>
-                </Pressable>
-                <Pressable
+                </SmoothPressable>
+                <SmoothPressable
                   onPress={() => setShowForm(false)}
                   className="flex-1 py-2 rounded items-center border border-border"
                 >
                   <Text className="text-foreground font-semibold">Cancel</Text>
-                </Pressable>
+                </SmoothPressable>
               </View>
             </View>
           )}

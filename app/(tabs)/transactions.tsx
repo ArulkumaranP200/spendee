@@ -1,12 +1,15 @@
 import React, { useState, useMemo } from 'react';
-import { ScrollView, View, Text, FlatList, TextInput, Pressable } from 'react-native';
+import { ScrollView, View, Text, TextInput, Alert } from 'react-native';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { ScreenContainer } from '@/components/screen-container';
 import { useFinance } from '@/lib/finance-context';
 import { StatusBadge } from '@/components/StatusBadge';
 import { formatCurrency, formatDate } from '@/lib/finance-utils';
 import { useSettings } from '@/lib/finance-context';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { SmoothPressable } from '@/components/ui/smooth-pressable';
 import { useColors } from '@/hooks/use-colors';
+import type { Transaction } from '@/lib/types';
 
 type FilterType = 'all' | 'paid' | 'unpaid';
 
@@ -40,42 +43,26 @@ export default function TransactionsScreen() {
     return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [state.transactions, filter, searchText]);
 
-  const handleDelete = (id: string) => {
-    dispatch({ type: 'DELETE_TRANSACTION', payload: id });
+  const handleDelete = (transaction: Transaction) => {
+    Alert.alert(
+      'Delete Transaction',
+      `Delete "${transaction.category}" for ${formatCurrency(transaction.amount, settings.currency)}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => dispatch({ type: 'DELETE_TRANSACTION', payload: transaction.id }),
+        },
+      ]
+    );
   };
-
-  const renderTransaction = ({ item }: { item: any }) => (
-    <Pressable
-      style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
-      onLongPress={() => handleDelete(item.id)}
-      className="bg-surface rounded-lg p-4 mb-3 border border-border flex-row justify-between items-center"
-    >
-      <View className="flex-1">
-        <View className="flex-row items-center gap-2 mb-1">
-          <Text className="font-semibold text-foreground">{item.category}</Text>
-          <StatusBadge status={item.paymentStatus} size="sm" />
-        </View>
-        <Text className="text-sm text-muted">{item.note}</Text>
-        <Text className="text-xs text-muted mt-1">{formatDate(item.date)}</Text>
-      </View>
-      <View className="items-end">
-        <Text
-          className={`text-lg font-bold ${
-            item.type === 'income' ? 'text-success' : 'text-error'
-          }`}
-        >
-          {item.type === 'income' ? '+' : '-'}
-          {formatCurrency(item.amount, settings.currency)}
-        </Text>
-      </View>
-    </Pressable>
-  );
 
   return (
     <ScreenContainer className="bg-background">
       <View className="flex-1">
         {/* Header */}
-        <View className="px-4 py-4 gap-4">
+        <Animated.View entering={FadeIn.duration(300)} className="px-4 py-4 gap-4">
           <Text className="text-2xl font-bold text-foreground">Transactions</Text>
 
           {/* Search Bar */}
@@ -93,10 +80,10 @@ export default function TransactionsScreen() {
           {/* Filter Chips */}
           <View className="flex-row gap-2">
             {(['all', 'paid', 'unpaid'] as FilterType[]).map((f) => (
-              <Pressable
+              <SmoothPressable
                 key={f}
                 onPress={() => setFilter(f)}
-                style={({ pressed }) => [
+                dynamicStyle={({ pressed }) => [
                   {
                     backgroundColor: filter === f ? colors.primary : colors.surface,
                     opacity: pressed ? 0.8 : 1,
@@ -111,20 +98,51 @@ export default function TransactionsScreen() {
                 >
                   {f}
                 </Text>
-              </Pressable>
+              </SmoothPressable>
             ))}
           </View>
-        </View>
+        </Animated.View>
 
         {/* Transactions List */}
         {filteredTransactions.length > 0 ? (
-          <FlatList
-            data={filteredTransactions}
-            renderItem={renderTransaction}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
-            scrollEnabled={false}
-          />
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}>
+            {filteredTransactions.map((item) => (
+              <Animated.View
+                key={item.id}
+                entering={FadeIn.duration(250)}
+                exiting={FadeOut.duration(200)}
+                layout={LinearTransition.duration(250)}
+                className="bg-surface rounded-lg p-4 mb-3 border border-border flex-row justify-between items-center"
+              >
+                <View className="flex-1">
+                  <View className="flex-row items-center gap-2 mb-1">
+                    <Text className="font-semibold text-foreground">{item.category}</Text>
+                    <StatusBadge status={item.paymentStatus} size="sm" />
+                  </View>
+                  <Text className="text-sm text-muted">{item.note}</Text>
+                  <Text className="text-xs text-muted mt-1">{formatDate(item.date)}</Text>
+                </View>
+                <View className="items-end gap-2">
+                  <Text
+                    className={`text-lg font-bold ${
+                      item.type === 'income' ? 'text-success' : 'text-error'
+                    }`}
+                  >
+                    {item.type === 'income' ? '+' : '-'}
+                    {formatCurrency(item.amount, settings.currency)}
+                  </Text>
+                  <SmoothPressable
+                    onPress={() => handleDelete(item)}
+                    hitSlop={8}
+                    dynamicStyle={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
+                    className="p-1"
+                  >
+                    <IconSymbol size={18} name="trash" color={colors.error} />
+                  </SmoothPressable>
+                </View>
+              </Animated.View>
+            ))}
+          </ScrollView>
         ) : (
           <View className="flex-1 items-center justify-center px-4">
             <Text className="text-lg text-muted font-semibold mb-2">No transactions</Text>

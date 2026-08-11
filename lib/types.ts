@@ -75,5 +75,6 @@ export interface SummaryData {
   balance: number;
   unpaidExpenses: number;
   categoryBreakdown: Record<string, number>;
+  incomeCategoryBreakdown: Record<string, number>;
   netLedgerPosition: number;
 }

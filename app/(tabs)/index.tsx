@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react';
-import { ScrollView, View, Text, Pressable } from 'react-native';
+import { ScrollView, View, Text } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { ScreenContainer } from '@/components/screen-container';
 import { SummaryCard } from '@/components/SummaryCard';
+import { CategoryBreakdownCard } from '@/components/CategoryBreakdownCard';
 import { useFinance } from '@/lib/finance-context';
 import { computeSummary, formatCurrency, getCurrentMonthYear, getTransactionsForMonth, calculateNetLedgerPosition } from '@/lib/finance-utils';
 import { useSettings } from '@/lib/finance-context';
@@ -17,16 +19,10 @@ export default function DashboardScreen() {
     [state.transactions, year, month]
   );
 
-  // Compute summary with and without exclusions
-  const summaryWithExclusions = useMemo(
-    () => computeSummary(monthTransactions, state.excludedIds),
-    [monthTransactions, state.excludedIds]
-  );
+  const summary = useMemo(() => computeSummary(monthTransactions), [monthTransactions]);
 
-  const summaryWithoutExclusions = useMemo(
-    () => computeSummary(monthTransactions, []),
-    [monthTransactions]
-  );
+  // All-time totals, independent of the current month
+  const allTimeSummary = useMemo(() => computeSummary(state.transactions), [state.transactions]);
 
   // Calculate net ledger position
   const netLedgerPosition = useMemo(
@@ -39,7 +35,7 @@ export default function DashboardScreen() {
   return (
     <ScreenContainer className="bg-background">
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="px-4 py-6">
-        <View className="gap-6">
+        <Animated.View entering={FadeIn.duration(300)} className="gap-6">
           {/* Header */}
           <View className="gap-2">
             <Text className="text-3xl font-bold text-foreground">Dashboard</Text>
@@ -48,22 +44,13 @@ export default function DashboardScreen() {
             </Text>
           </View>
 
-          {/* Exclusion Info Banner */}
-          {state.excludedIds.length > 0 && (
-            <View className="bg-accent/10 border border-accent rounded-lg p-3">
-              <Text className="text-sm text-accent font-semibold">
-                {state.excludedIds.length} transaction(s) excluded from totals
-              </Text>
-            </View>
-          )}
-
           {/* Summary Cards Grid */}
           <View className="gap-3">
             {/* Balance Card */}
             <SummaryCard
               title="Total Balance"
-              value={formatCurrency(summaryWithExclusions.balance, currency)}
-              variant={summaryWithExclusions.balance >= 0 ? 'success' : 'error'}
+              value={formatCurrency(summary.balance, currency)}
+              variant={summary.balance >= 0 ? 'success' : 'error'}
             />
 
             {/* Income & Expenses Row */}
@@ -71,14 +58,14 @@ export default function DashboardScreen() {
               <View className="flex-1">
                 <SummaryCard
                   title="Income"
-                  value={formatCurrency(summaryWithExclusions.totalIncome, currency)}
+                  value={formatCurrency(summary.totalIncome, currency)}
                   variant="success"
                 />
               </View>
               <View className="flex-1">
                 <SummaryCard
                   title="Expenses"
-                  value={formatCurrency(summaryWithExclusions.totalExpenses, currency)}
+                  value={formatCurrency(summary.totalExpenses, currency)}
                   variant="error"
                 />
               </View>
@@ -89,7 +76,7 @@ export default function DashboardScreen() {
               <View className="flex-1">
                 <SummaryCard
                   title="Unpaid"
-                  value={formatCurrency(summaryWithExclusions.unpaidExpenses, currency)}
+                  value={formatCurrency(summary.unpaidExpenses, currency)}
                   variant="warning"
                 />
               </View>
@@ -103,21 +90,46 @@ export default function DashboardScreen() {
             </View>
           </View>
 
-          {/* Exclude Payments Button */}
-          <Pressable
-            style={({ pressed }) => [
-              {
-                backgroundColor: pressed ? '#1a3a7a' : '#1e40af',
-                opacity: pressed ? 0.8 : 1,
-              },
-            ]}
-            className="py-3 px-4 rounded-lg items-center flex-row justify-between"
-          >
-            <Text className="text-white font-semibold">
-              Exclude Payments {state.excludedIds.length > 0 && `(${state.excludedIds.length})`}
-            </Text>
-            <Text className="text-white text-lg">→</Text>
-          </Pressable>
+          {/* All-Time Overview */}
+          <View className="gap-3">
+            <Text className="text-sm font-semibold text-foreground">All-Time Overview</Text>
+            <View className="flex-row gap-3">
+              <View className="flex-1">
+                <SummaryCard
+                  title="Total Saved"
+                  value={formatCurrency(allTimeSummary.balance, currency)}
+                  subtitle="Income minus expenses"
+                  variant={allTimeSummary.balance >= 0 ? 'success' : 'error'}
+                />
+              </View>
+              <View className="flex-1">
+                <SummaryCard
+                  title="Total Spent"
+                  value={formatCurrency(allTimeSummary.totalExpenses, currency)}
+                  subtitle="All-time expenses"
+                  variant="error"
+                />
+              </View>
+            </View>
+          </View>
+
+          {/* Breakdown Charts */}
+          <View className="gap-3">
+            <CategoryBreakdownCard
+              title="Expenses by Category"
+              breakdown={summary.categoryBreakdown}
+              currency={currency}
+              emptyMessage="No expenses recorded this month"
+              accentVariant="error"
+            />
+            <CategoryBreakdownCard
+              title="Income by Category"
+              breakdown={summary.incomeCategoryBreakdown}
+              currency={currency}
+              emptyMessage="No income recorded this month"
+              accentVariant="success"
+            />
+          </View>
 
           {/* Quick Stats */}
           <View className="gap-2">
@@ -130,7 +142,7 @@ export default function DashboardScreen() {
               <View className="flex-row justify-between">
                 <Text className="text-sm text-muted">Categories Used</Text>
                 <Text className="text-sm font-semibold text-foreground">
-                  {Object.keys(summaryWithExclusions.categoryBreakdown).length}
+                  {Object.keys(summary.categoryBreakdown).length}
                 </Text>
               </View>
               <View className="flex-row justify-between">
@@ -138,8 +150,7 @@ export default function DashboardScreen() {
                 <Text className="text-sm font-semibold text-foreground">
                   {monthTransactions.length > 0
                     ? formatCurrency(
-                        (summaryWithExclusions.totalExpenses + summaryWithExclusions.totalIncome) /
-                          monthTransactions.length,
+                        (summary.totalExpenses + summary.totalIncome) / monthTransactions.length,
                         currency
                       )
                     : formatCurrency(0, currency)}
@@ -147,25 +158,7 @@ export default function DashboardScreen() {
               </View>
             </View>
           </View>
-
-          {/* Comparison Note */}
-          {state.excludedIds.length > 0 && (
-            <View className="bg-surface rounded-lg p-3 border border-border">
-              <Text className="text-xs text-muted mb-2">Without Exclusions:</Text>
-              <View className="flex-row justify-between">
-                <Text className="text-sm font-semibold text-foreground">
-                  {formatCurrency(summaryWithoutExclusions.balance, currency)}
-                </Text>
-                <Text className="text-xs text-muted">
-                  Difference: {formatCurrency(
-                    summaryWithoutExclusions.balance - summaryWithExclusions.balance,
-                    currency
-                  )}
-                </Text>
-              </View>
-            </View>
-          )}
-        </View>
+        </Animated.View>
       </ScrollView>
     </ScreenContainer>
   );

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { ScrollView, View, Text, Pressable, Switch, Alert, TextInput } from 'react-native';
+import { ScrollView, View, Text, Switch, Alert, TextInput } from 'react-native';
 import { ScreenContainer } from '@/components/screen-container';
 import { useSettings } from '@/lib/finance-context';
 import { useLockSettings } from '@/lib/finance-context';
 import { useFinance } from '@/lib/finance-context';
 import { exportAllData, clearAllData } from '@/lib/storage';
 import { useColors } from '@/hooks/use-colors';
+import { SmoothPressable } from '@/components/ui/smooth-pressable';
 import * as Clipboard from 'expo-clipboard';
 
 const CURRENCY_OPTIONS = ['$', '€', '₹', '£', '¥', '₽'];
@@ -115,10 +116,10 @@ export default function SettingsScreen() {
             <Text className="text-sm font-semibold text-foreground">Currency</Text>
             <View className="flex-row flex-wrap gap-2">
               {CURRENCY_OPTIONS.map((curr) => (
-                <Pressable
+                <SmoothPressable
                   key={curr}
                   onPress={() => updateSettings({ currency: curr })}
-                  style={({ pressed }) => [
+                  dynamicStyle={({ pressed }) => [
                     {
                       backgroundColor: settings.currency === curr ? colors.primary : colors.surface,
                       opacity: pressed ? 0.8 : 1,
@@ -133,7 +134,7 @@ export default function SettingsScreen() {
                   >
                     {curr}
                   </Text>
-                </Pressable>
+                </SmoothPressable>
               ))}
             </View>
           </View>
@@ -143,10 +144,10 @@ export default function SettingsScreen() {
             <Text className="text-sm font-semibold text-foreground">Theme</Text>
             <View className="flex-row gap-2">
               {(['light', 'dark', 'system'] as const).map((theme) => (
-                <Pressable
+                <SmoothPressable
                   key={theme}
                   onPress={() => updateSettings({ theme })}
-                  style={({ pressed }) => [
+                  dynamicStyle={({ pressed }) => [
                     {
                       backgroundColor: settings.theme === theme ? colors.primary : colors.surface,
                       opacity: pressed ? 0.8 : 1,
@@ -161,7 +162,7 @@ export default function SettingsScreen() {
                   >
                     {theme}
                   </Text>
-                </Pressable>
+                </SmoothPressable>
               ))}
             </View>
           </View>
@@ -215,9 +216,9 @@ export default function SettingsScreen() {
                   className="bg-background rounded px-3 py-2 border border-border text-foreground"
                 />
                 <View className="flex-row gap-2">
-                  <Pressable
+                  <SmoothPressable
                     onPress={handleSetupLock}
-                    style={({ pressed }) => [
+                    dynamicStyle={({ pressed }) => [
                       {
                         backgroundColor: pressed ? '#1a3a7a' : '#1e40af',
                         opacity: pressed ? 0.8 : 1,
@@ -226,13 +227,13 @@ export default function SettingsScreen() {
                     className="flex-1 py-2 rounded items-center"
                   >
                     <Text className="text-white font-semibold">Enable</Text>
-                  </Pressable>
-                  <Pressable
+                  </SmoothPressable>
+                  <SmoothPressable
                     onPress={() => setShowLockSetup(false)}
                     className="flex-1 py-2 rounded items-center border border-border"
                   >
                     <Text className="text-foreground font-semibold">Cancel</Text>
-                  </Pressable>
+                  </SmoothPressable>
                 </View>
               </View>
             )}
@@ -242,9 +243,9 @@ export default function SettingsScreen() {
           <View className="gap-3">
             <Text className="text-sm font-semibold text-foreground">Data</Text>
 
-            <Pressable
+            <SmoothPressable
               onPress={handleExportData}
-              style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
+              dynamicStyle={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
               className="bg-surface rounded-lg p-4 border border-border flex-row justify-between items-center"
             >
               <View>
@@ -252,11 +253,11 @@ export default function SettingsScreen() {
                 <Text className="text-xs text-muted mt-1">Copy all data to clipboard</Text>
               </View>
               <Text className="text-lg">→</Text>
-            </Pressable>
+            </SmoothPressable>
 
-            <Pressable
+            <SmoothPressable
               onPress={handleClearData}
-              style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
+              dynamicStyle={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
               className="bg-error/10 rounded-lg p-4 border border-error flex-row justify-between items-center"
             >
               <View>
@@ -264,7 +265,7 @@ export default function SettingsScreen() {
                 <Text className="text-xs text-error/70 mt-1">Permanently delete everything</Text>
               </View>
               <Text className="text-lg text-error">→</Text>
-            </Pressable>
+            </SmoothPressable>
           </View>
 
           {/* About Section */}

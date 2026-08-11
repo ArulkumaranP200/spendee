@@ -57,12 +57,17 @@ export function computeSummary(
     effectiveTransactions.filter((t) => t.type === 'expense')
   );
 
+  const incomeCategoryBreakdown = groupByCategory(
+    effectiveTransactions.filter((t) => t.type === 'income')
+  );
+
   return {
     totalIncome,
     totalExpenses,
     balance: totalIncome - totalExpenses,
     unpaidExpenses,
     categoryBreakdown,
+    incomeCategoryBreakdown,
     netLedgerPosition: 0, // Will be computed separately with ledger data
   };
 }

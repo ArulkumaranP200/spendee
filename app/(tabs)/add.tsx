@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, View, Text, TextInput, Pressable, Switch, Alert } from 'react-native';
+import { ScrollView, View, Text, TextInput, Switch, Alert } from 'react-native';
 import { ScreenContainer } from '@/components/screen-container';
 import { useTransactions } from '@/lib/finance-context';
 import { useSettings } from '@/lib/finance-context';
@@ -7,6 +7,7 @@ import { validateSplitSum, isValidAmount } from '@/lib/finance-utils';
 import { generateUUID } from '@/lib/finance-utils';
 import { useColors } from '@/hooks/use-colors';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { SmoothPressable } from '@/components/ui/smooth-pressable';
 import { SplitItem } from '@/lib/types';
 
 const EXPENSE_CATEGORIES = [
@@ -139,13 +140,13 @@ export default function AddTransactionScreen() {
             <Text className="text-sm font-semibold text-foreground">Type</Text>
             <View className="flex-row gap-2">
               {(['income', 'expense'] as const).map((t) => (
-                <Pressable
+                <SmoothPressable
                   key={t}
                   onPress={() => {
                     setType(t);
                     setCategory('');
                   }}
-                  style={({ pressed }) => [
+                  dynamicStyle={({ pressed }) => [
                     {
                       backgroundColor: type === t ? colors.primary : colors.surface,
                       opacity: pressed ? 0.8 : 1,
@@ -160,7 +161,7 @@ export default function AddTransactionScreen() {
                   >
                     {t}
                   </Text>
-                </Pressable>
+                </SmoothPressable>
               ))}
             </View>
           </View>
@@ -186,10 +187,10 @@ export default function AddTransactionScreen() {
             <Text className="text-sm font-semibold text-foreground">Category</Text>
             <View className="flex-row flex-wrap gap-2">
               {categories.map((cat) => (
-                <Pressable
+                <SmoothPressable
                   key={cat}
                   onPress={() => setCategory(cat)}
-                  style={({ pressed }) => [
+                  dynamicStyle={({ pressed }) => [
                     {
                       backgroundColor: category === cat ? colors.primary : colors.surface,
                       opacity: pressed ? 0.8 : 1,
@@ -204,7 +205,7 @@ export default function AddTransactionScreen() {
                   >
                     {cat}
                   </Text>
-                </Pressable>
+                </SmoothPressable>
               ))}
             </View>
           </View>
@@ -240,10 +241,10 @@ export default function AddTransactionScreen() {
             <Text className="text-sm font-semibold text-foreground">Payment Status</Text>
             <View className="flex-row gap-2">
               {(['paid', 'unpaid'] as const).map((status) => (
-                <Pressable
+                <SmoothPressable
                   key={status}
                   onPress={() => setPaymentStatus(status)}
-                  style={({ pressed }) => [
+                  dynamicStyle={({ pressed }) => [
                     {
                       backgroundColor: paymentStatus === status ? colors.success : colors.surface,
                       opacity: pressed ? 0.8 : 1,
@@ -258,7 +259,7 @@ export default function AddTransactionScreen() {
                   >
                     {status}
                   </Text>
-                </Pressable>
+                </SmoothPressable>
               ))}
             </View>
           </View>
@@ -303,28 +304,28 @@ export default function AddTransactionScreen() {
                     keyboardType="decimal-pad"
                     className="bg-background rounded px-3 py-2 border border-border text-foreground"
                   />
-                  <Pressable
+                  <SmoothPressable
                     onPress={() => handleRemoveSplit(split.id)}
                     className="py-2 items-center"
                   >
                     <Text className="text-error font-semibold">Remove</Text>
-                  </Pressable>
+                  </SmoothPressable>
                 </View>
               ))}
 
-              <Pressable
+              <SmoothPressable
                 onPress={handleAddSplit}
                 className="py-3 items-center border-t border-border mt-2"
               >
                 <Text className="text-primary font-semibold">+ Add Split Item</Text>
-              </Pressable>
+              </SmoothPressable>
             </View>
           )}
 
           {/* Submit Button */}
-          <Pressable
+          <SmoothPressable
             onPress={handleSubmit}
-            style={({ pressed }) => [
+            dynamicStyle={({ pressed }) => [
               {
                 backgroundColor: pressed ? '#1a3a7a' : '#1e40af',
                 opacity: pressed ? 0.8 : 1,
@@ -333,7 +334,7 @@ export default function AddTransactionScreen() {
             className="py-4 rounded-lg items-center"
           >
             <Text className="text-white font-bold text-lg">Add Transaction</Text>
-          </Pressable>
+          </SmoothPressable>
         </View>
       </ScrollView>
     </ScreenContainer>

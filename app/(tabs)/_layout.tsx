@@ -18,6 +18,7 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
         headerShown: false,
+        animation: "fade",
         tabBarButton: HapticTab,
         tabBarStyle: {
           paddingTop: 8,
