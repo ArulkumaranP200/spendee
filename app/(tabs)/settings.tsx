@@ -1,20 +1,24 @@
 import React, { useState } from 'react';
 import { ScrollView, View, Text, Switch, Alert, TextInput } from 'react-native';
+import { useRouter } from 'expo-router';
 import { ScreenContainer } from '@/components/screen-container';
 import { useSettings } from '@/lib/finance-context';
 import { useLockSettings } from '@/lib/finance-context';
 import { useFinance } from '@/lib/finance-context';
-import { exportAllData, clearAllData } from '@/lib/storage';
+import { importAllData, clearAllData, resetAllBalances } from '@/lib/storage';
+import { backupToFile, pickBackupFile } from '@/lib/backup';
 import { useColors } from '@/hooks/use-colors';
+import { withAlpha } from '@/lib/color-utils';
 import { SmoothPressable } from '@/components/ui/smooth-pressable';
-import * as Clipboard from 'expo-clipboard';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 
 const CURRENCY_OPTIONS = ['$', '€', '₹', '£', '¥', '₽'];
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const { settings, updateSettings } = useSettings();
   const { lockSettings, updateLockSettings } = useLockSettings();
-  const { dispatch } = useFinance();
+  const { dispatch, reloadFromStorage } = useFinance();
   const colors = useColors();
 
   const [showLockSetup, setShowLockSetup] = useState(false);
@@ -61,14 +65,68 @@ export default function SettingsScreen() {
     );
   };
 
-  const handleExportData = async () => {
+  const handleBackupData = async () => {
     try {
-      const data = await exportAllData();
-      await Clipboard.setStringAsync(data);
-      Alert.alert('Success', 'Data copied to clipboard');
+      await backupToFile();
     } catch (error) {
-      Alert.alert('Error', 'Failed to export data');
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to back up data');
     }
+  };
+
+  const handleRestoreData = async () => {
+    try {
+      const text = await pickBackupFile();
+      if (!text) return; // user cancelled the picker
+
+      try {
+        JSON.parse(text);
+      } catch {
+        Alert.alert('Invalid File', 'That file doesn\'t look like a valid SpendWise backup.');
+        return;
+      }
+
+      Alert.alert(
+        'Restore Data',
+        'This will overwrite your current transactions, budgets, categories, and payment methods with the selected backup. Continue?',
+        [
+          { text: 'Cancel' },
+          {
+            text: 'Restore',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await importAllData(text);
+                await reloadFromStorage();
+                Alert.alert('Success', 'Data restored from backup');
+              } catch (error) {
+                Alert.alert('Restore Failed', error instanceof Error ? error.message : 'Could not restore backup');
+              }
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to read backup file');
+    }
+  };
+
+  const handleResetBalances = () => {
+    Alert.alert(
+      'Reset All Balances',
+      'This sets every payment method\'s balance to 0. Transactions are not affected.',
+      [
+        { text: 'Cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            const reset = await resetAllBalances();
+            dispatch({ type: 'SET_PAYMENT_METHODS', payload: reset });
+            Alert.alert('Complete', 'All balances have been reset');
+          },
+        },
+      ]
+    );
   };
 
   const handleClearData = () => {
@@ -91,9 +149,7 @@ export default function SettingsScreen() {
                   style: 'destructive',
                   onPress: async () => {
                     await clearAllData();
-                    dispatch({ type: 'SET_TRANSACTIONS', payload: [] });
-                    dispatch({ type: 'SET_LEDGER_ENTRIES', payload: [] });
-                    dispatch({ type: 'SET_BUDGETS', payload: [] });
+                    await reloadFromStorage();
                     Alert.alert('Complete', 'All data has been cleared');
                   },
                 },
@@ -115,27 +171,34 @@ export default function SettingsScreen() {
           <View className="gap-3">
             <Text className="text-sm font-semibold text-foreground">Currency</Text>
             <View className="flex-row flex-wrap gap-2">
-              {CURRENCY_OPTIONS.map((curr) => (
-                <SmoothPressable
-                  key={curr}
-                  onPress={() => updateSettings({ currency: curr })}
-                  dynamicStyle={({ pressed }) => [
-                    {
-                      backgroundColor: settings.currency === curr ? colors.primary : colors.surface,
-                      opacity: pressed ? 0.8 : 1,
-                    },
-                  ]}
-                  className="px-4 py-2 rounded-full border border-border"
-                >
-                  <Text
-                    className={`font-semibold ${
-                      settings.currency === curr ? 'text-white' : 'text-foreground'
-                    }`}
+              {CURRENCY_OPTIONS.map((curr) => {
+                const selected = settings.currency === curr;
+                return (
+                  <SmoothPressable
+                    key={curr}
+                    onPress={() => updateSettings({ currency: curr })}
+                    dynamicStyle={({ pressed, hovered }) => [
+                      {
+                        paddingHorizontal: 16,
+                        paddingVertical: 8,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        backgroundColor: selected
+                          ? withAlpha(colors.primary, 0.3)
+                          : hovered
+                            ? withAlpha(colors.primary, 0.12)
+                            : colors.surface,
+                        borderColor: selected ? withAlpha(colors.primary, 0.3) : colors.border,
+                        opacity: pressed ? 0.85 : 1,
+                      },
+                    ]}
                   >
-                    {curr}
-                  </Text>
-                </SmoothPressable>
-              ))}
+                    <Text className="font-semibold" style={{ color: colors.foreground }}>
+                      {curr}
+                    </Text>
+                  </SmoothPressable>
+                );
+              })}
             </View>
           </View>
 
@@ -143,27 +206,34 @@ export default function SettingsScreen() {
           <View className="gap-3">
             <Text className="text-sm font-semibold text-foreground">Theme</Text>
             <View className="flex-row gap-2">
-              {(['light', 'dark', 'system'] as const).map((theme) => (
-                <SmoothPressable
-                  key={theme}
-                  onPress={() => updateSettings({ theme })}
-                  dynamicStyle={({ pressed }) => [
-                    {
-                      backgroundColor: settings.theme === theme ? colors.primary : colors.surface,
-                      opacity: pressed ? 0.8 : 1,
-                    },
-                  ]}
-                  className="flex-1 py-2 rounded-lg border border-border items-center"
-                >
-                  <Text
-                    className={`font-semibold capitalize ${
-                      settings.theme === theme ? 'text-white' : 'text-foreground'
-                    }`}
+              {(['light', 'dark', 'system'] as const).map((theme) => {
+                const selected = settings.theme === theme;
+                return (
+                  <SmoothPressable
+                    key={theme}
+                    onPress={() => updateSettings({ theme })}
+                    className="flex-1"
+                    dynamicStyle={({ pressed, hovered }) => [
+                      {
+                        paddingVertical: 10,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        backgroundColor: selected
+                          ? withAlpha(colors.primary, 0.3)
+                          : hovered
+                            ? withAlpha(colors.primary, 0.12)
+                            : colors.surface,
+                        borderColor: selected ? withAlpha(colors.primary, 0.3) : colors.border,
+                        opacity: pressed ? 0.85 : 1,
+                      },
+                    ]}
                   >
-                    {theme}
-                  </Text>
-                </SmoothPressable>
-              ))}
+                    <Text className="font-semibold capitalize" style={{ color: colors.foreground }}>
+                      {theme}
+                    </Text>
+                  </SmoothPressable>
+                );
+              })}
             </View>
           </View>
 
@@ -218,19 +288,24 @@ export default function SettingsScreen() {
                 <View className="flex-row gap-2">
                   <SmoothPressable
                     onPress={handleSetupLock}
-                    dynamicStyle={({ pressed }) => [
+                    className="flex-1"
+                    dynamicStyle={({ pressed, hovered }) => [
                       {
-                        backgroundColor: pressed ? '#1a3a7a' : '#1e40af',
-                        opacity: pressed ? 0.8 : 1,
+                        paddingVertical: 10,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        borderColor: withAlpha(colors.primary, 0.3),
+                        backgroundColor: withAlpha(colors.primary, hovered ? 0.4 : 0.3),
+                        alignItems: 'center',
+                        opacity: pressed ? 0.85 : 1,
                       },
                     ]}
-                    className="flex-1 py-2 rounded items-center"
                   >
-                    <Text className="text-white font-semibold">Enable</Text>
+                    <Text className="font-semibold" style={{ color: colors.foreground }}>Enable</Text>
                   </SmoothPressable>
                   <SmoothPressable
                     onPress={() => setShowLockSetup(false)}
-                    className="flex-1 py-2 rounded items-center border border-border"
+                    className="flex-1 py-2.5 rounded-full items-center border border-border"
                   >
                     <Text className="text-foreground font-semibold">Cancel</Text>
                   </SmoothPressable>
@@ -239,26 +314,84 @@ export default function SettingsScreen() {
             )}
           </View>
 
-          {/* Data Section */}
+          {/* Manage Section */}
           <View className="gap-3">
-            <Text className="text-sm font-semibold text-foreground">Data</Text>
+            <Text className="text-sm font-semibold text-foreground">Manage</Text>
 
             <SmoothPressable
-              onPress={handleExportData}
+              onPress={() => router.push('/categories')}
               dynamicStyle={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
-              className="bg-surface rounded-lg p-4 border border-border flex-row justify-between items-center"
+              className="bg-surface rounded-2xl p-4 mb-3 shadow-sm flex-row justify-between items-center"
+            >
+              <View className="flex-row items-center gap-2">
+                <Text className="text-lg">🏷️</Text>
+                <Text className="font-semibold text-foreground">Categories</Text>
+              </View>
+              <IconSymbol size={20} name="chevron.right" color={colors.muted} />
+            </SmoothPressable>
+
+            <SmoothPressable
+              onPress={() => router.push('/payment-methods')}
+              dynamicStyle={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
+              className="bg-surface rounded-2xl p-4 mb-3 shadow-sm flex-row justify-between items-center"
+            >
+              <View className="flex-row items-center gap-2">
+                <Text className="text-lg">💳</Text>
+                <Text className="font-semibold text-foreground">Payment Methods</Text>
+              </View>
+              <IconSymbol size={20} name="chevron.right" color={colors.muted} />
+            </SmoothPressable>
+          </View>
+
+          {/* Backup & Restore Section */}
+          <View className="gap-3">
+            <Text className="text-sm font-semibold text-foreground">Backup & Restore</Text>
+
+            <SmoothPressable
+              onPress={handleBackupData}
+              dynamicStyle={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
+              className="bg-surface rounded-2xl p-4 mb-3 shadow-sm flex-row justify-between items-center"
             >
               <View>
-                <Text className="font-semibold text-foreground">Export Data</Text>
-                <Text className="text-xs text-muted mt-1">Copy all data to clipboard</Text>
+                <Text className="font-semibold text-foreground">Backup Data</Text>
+                <Text className="text-xs text-muted mt-1">Save a backup file — survives reinstalling the app</Text>
               </View>
               <Text className="text-lg">→</Text>
             </SmoothPressable>
 
             <SmoothPressable
+              onPress={handleRestoreData}
+              dynamicStyle={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
+              className="bg-surface rounded-2xl p-4 mb-3 shadow-sm flex-row justify-between items-center"
+            >
+              <View>
+                <Text className="font-semibold text-foreground">Restore Data</Text>
+                <Text className="text-xs text-muted mt-1">Choose a backup file to restore</Text>
+              </View>
+              <Text className="text-lg">→</Text>
+            </SmoothPressable>
+          </View>
+
+          {/* Data Management Section */}
+          <View className="gap-3">
+            <Text className="text-sm font-semibold text-foreground">Data Management</Text>
+
+            <SmoothPressable
+              onPress={handleResetBalances}
+              dynamicStyle={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
+              className="bg-warning/10 rounded-2xl p-4 mb-3 shadow-sm flex-row justify-between items-center"
+            >
+              <View>
+                <Text className="font-semibold text-warning">Reset All Balances</Text>
+                <Text className="text-xs text-warning/70 mt-1">Set every payment method to 0</Text>
+              </View>
+              <Text className="text-lg text-warning">→</Text>
+            </SmoothPressable>
+
+            <SmoothPressable
               onPress={handleClearData}
               dynamicStyle={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
-              className="bg-error/10 rounded-lg p-4 border border-error flex-row justify-between items-center"
+              className="bg-error/10 rounded-2xl p-4 shadow-sm flex-row justify-between items-center"
             >
               <View>
                 <Text className="font-semibold text-error">Clear All Data</Text>

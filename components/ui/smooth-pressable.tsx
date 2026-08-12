@@ -46,11 +46,14 @@ export function SmoothPressable({
   dynamicStyle,
   onPressIn,
   onPressOut,
+  onHoverIn,
+  onHoverOut,
   children,
   ...props
 }: SmoothPressableProps) {
   const scale = useSharedValue(1);
   const [pressed, setPressed] = useState(false);
+  const [hovered, setHovered] = useState(false);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -60,7 +63,7 @@ export function SmoothPressable({
   // augmentation adds a `hovered` field to PressableStateCallbackType in
   // some setups but not others — a direct annotation would trigger an
   // excess-property error wherever `hovered` isn't part of the type.
-  const pressableState = { pressed, hovered: false } as PressableStateCallbackType;
+  const pressableState = { pressed, hovered } as PressableStateCallbackType;
   const resolvedDynamicStyle =
     typeof dynamicStyle === 'function' ? dynamicStyle(pressableState) : dynamicStyle;
 
@@ -76,6 +79,14 @@ export function SmoothPressable({
         scale.value = withTiming(1, { duration: 180, easing: Easing.out(Easing.quad) });
         setPressed(false);
         onPressOut?.(e);
+      }}
+      onHoverIn={(e) => {
+        setHovered(true);
+        onHoverIn?.(e);
+      }}
+      onHoverOut={(e) => {
+        setHovered(false);
+        onHoverOut?.(e);
       }}
     >
       <Animated.View

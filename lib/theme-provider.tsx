@@ -3,6 +3,7 @@ import { Appearance, View, useColorScheme as useSystemColorScheme } from "react-
 import { colorScheme as nativewindColorScheme, vars } from "nativewind";
 
 import { SchemeColors, type ColorScheme } from "@/constants/theme";
+import { useSettings } from "@/lib/finance-context";
 
 type ThemeContextValue = {
   colorScheme: ColorScheme;
@@ -61,7 +62,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }),
     [colorScheme, setColorScheme],
   );
-  console.log(value, themeVariables)
 
   return (
     <ThemeContext.Provider value={value}>
@@ -76,4 +76,23 @@ export function useThemeContext(): ThemeContextValue {
     throw new Error("useThemeContext must be used within ThemeProvider");
   }
   return ctx;
+}
+
+/**
+ * Bridges the user's saved theme preference (Settings screen -> FinanceContext
+ * -> AsyncStorage) into ThemeProvider's actual rendered colorScheme — without
+ * this, the Light/Dark/System buttons only updated stored state that nothing
+ * ever read back. Must be rendered inside both FinanceProvider and
+ * ThemeProvider. Renders nothing.
+ */
+export function ThemeSync() {
+  const { setColorScheme } = useThemeContext();
+  const systemScheme = useSystemColorScheme() ?? "light";
+  const { settings } = useSettings();
+
+  useEffect(() => {
+    setColorScheme(settings.theme === "system" ? systemScheme : settings.theme);
+  }, [settings.theme, systemScheme, setColorScheme]);
+
+  return null;
 }

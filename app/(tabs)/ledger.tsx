@@ -7,6 +7,7 @@ import { useSettings } from '@/lib/finance-context';
 import { StatusBadge } from '@/components/StatusBadge';
 import { formatCurrency, formatDate, calculateNetLedgerPosition, isValidAmount } from '@/lib/finance-utils';
 import { useColors } from '@/hooks/use-colors';
+import { withAlpha } from '@/lib/color-utils';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { SmoothPressable } from '@/components/ui/smooth-pressable';
 import type { CreditDebitEntry, LedgerDirection } from '@/lib/types';
@@ -95,19 +96,22 @@ export default function LedgerScreen() {
     <ScreenContainer className="bg-background">
       <View className="flex-1">
         {/* Header */}
-        <Animated.View entering={FadeIn.duration(300)} className="px-4 py-4 gap-4">
+        <Animated.View
+          entering={FadeIn.duration(300)}
+          style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16, gap: 16 }}
+        >
           <Text className="text-2xl font-bold text-foreground">Credit & Debit</Text>
 
           {/* Summary Cards */}
           <View className="gap-2">
             <View className="flex-row gap-2">
-              <View className="flex-1 bg-success/10 rounded-lg p-3 border border-success">
+              <View className="flex-1 bg-success/10 rounded-2xl p-3 shadow-sm">
                 <Text className="text-xs text-muted mb-1">Total Credit</Text>
                 <Text className="text-lg font-bold text-success">
                   {formatCurrency(totalCredit, settings.currency)}
                 </Text>
               </View>
-              <View className="flex-1 bg-error/10 rounded-lg p-3 border border-error">
+              <View className="flex-1 bg-error/10 rounded-2xl p-3 shadow-sm">
                 <Text className="text-xs text-muted mb-1">Total Debit</Text>
                 <Text className="text-lg font-bold text-error">
                   {formatCurrency(totalDebit, settings.currency)}
@@ -117,10 +121,8 @@ export default function LedgerScreen() {
 
             {/* Net Position */}
             <View
-              className={`rounded-lg p-3 border ${
-                netPosition >= 0
-                  ? 'bg-success/10 border-success'
-                  : 'bg-error/10 border-error'
+              className={`rounded-2xl p-3 shadow-sm ${
+                netPosition >= 0 ? 'bg-success/10' : 'bg-error/10'
               }`}
             >
               <Text className="text-xs text-muted mb-1">Net Position</Text>
@@ -144,45 +146,72 @@ export default function LedgerScreen() {
           <View className="flex-row gap-2">
             <SmoothPressable
               onPress={() => setModalDirection('credit')}
-              dynamicStyle={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
-              className="flex-1 py-3 rounded-lg items-center bg-success flex-row justify-center gap-2"
+              className="flex-1"
+              dynamicStyle={({ pressed, hovered }) => [
+                {
+                  paddingVertical: 12,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: withAlpha(colors.primary, 0.3),
+                  backgroundColor: hovered ? withAlpha(colors.primary, 0.4) : withAlpha(colors.primary, 0.3),
+                  alignItems: 'center',
+                  opacity: pressed ? 0.85 : 1,
+                },
+              ]}
             >
-              <IconSymbol size={18} name="arrow.up.right" color="#fff" />
-              <Text className="text-white font-semibold">New Credit</Text>
+              <IconSymbol size={18} name="arrow.up.right" color={colors.primary} />
+              <Text className="font-semibold" style={{ color: colors.foreground }}>New Credit</Text>
             </SmoothPressable>
             <SmoothPressable
               onPress={() => setModalDirection('debit')}
-              dynamicStyle={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
-              className="flex-1 py-3 rounded-lg items-center bg-error flex-row justify-center gap-2"
+              className="flex-1"
+              dynamicStyle={({ pressed, hovered }) => [
+                {
+                  paddingVertical: 12,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: withAlpha(colors.primary, 0.3),
+                  backgroundColor: hovered ? withAlpha(colors.primary, 0.4) : withAlpha(colors.primary, 0.3),
+                  alignItems: 'center',
+                  opacity: pressed ? 0.85 : 1,
+                },
+              ]}
             >
-              <IconSymbol size={18} name="arrow.down.left" color="#fff" />
-              <Text className="text-white font-semibold">New Debit</Text>
+              <IconSymbol size={18} name="arrow.down.left" color={colors.primary} />
+              <Text className="font-semibold" style={{ color: colors.foreground }}>New Debit</Text>
             </SmoothPressable>
           </View>
 
           {/* Filter Chips */}
           <View className="flex-row gap-2">
-            {(['credit', 'debit', 'all'] as LedgerFilter[]).map((f) => (
-              <SmoothPressable
-                key={f}
-                onPress={() => setFilter(f)}
-                dynamicStyle={({ pressed }) => [
-                  {
-                    backgroundColor: filter === f ? colors.primary : colors.surface,
-                    opacity: pressed ? 0.8 : 1,
-                  },
-                ]}
-                className="px-4 py-2 rounded-full border border-border"
-              >
-                <Text
-                  className={`font-semibold capitalize ${
-                    filter === f ? 'text-white' : 'text-foreground'
-                  }`}
+            {(['credit', 'debit', 'all'] as LedgerFilter[]).map((f) => {
+              const selected = filter === f;
+              return (
+                <SmoothPressable
+                  key={f}
+                  onPress={() => setFilter(f)}
+                  dynamicStyle={({ pressed, hovered }) => [
+                    {
+                      paddingHorizontal: 16,
+                      paddingVertical: 8,
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      backgroundColor: selected
+                        ? withAlpha(colors.primary, 0.3)
+                        : hovered
+                          ? withAlpha(colors.primary, 0.12)
+                          : colors.surface,
+                      borderColor: selected ? withAlpha(colors.primary, 0.3) : colors.border,
+                      opacity: pressed ? 0.85 : 1,
+                    },
+                  ]}
                 >
-                  {f}
-                </Text>
-              </SmoothPressable>
-            ))}
+                  <Text className="font-semibold capitalize" style={{ color: colors.foreground }}>
+                    {f}
+                  </Text>
+                </SmoothPressable>
+              );
+            })}
           </View>
         </Animated.View>
 
@@ -198,7 +227,7 @@ export default function LedgerScreen() {
                   entering={FadeIn.duration(250)}
                   exiting={FadeOut.duration(200)}
                   layout={LinearTransition.duration(250)}
-                  className="bg-surface rounded-lg p-4 mb-3 border border-border"
+                  className="bg-surface rounded-2xl p-4 mb-3 shadow-sm"
                 >
                   <View className="flex-row justify-between items-start mb-2">
                     <View className="flex-1">
@@ -275,11 +304,8 @@ export default function LedgerScreen() {
           style={[StyleSheet.absoluteFillObject, { zIndex: 50 }]}
           className="justify-end bg-black/40"
         >
-          <Animated.View
-            entering={FadeIn.duration(200)}
-            exiting={FadeOut.duration(150)}
-            className="bg-background rounded-t-2xl p-4 gap-4 border-t border-border"
-          >
+          <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)}>
+          <View className="bg-background rounded-t-2xl p-4 gap-4 border-t border-border">
             <Text className="text-lg font-bold text-foreground">
               New {modalDirection === 'credit' ? 'Credit' : 'Debit'} Entry
             </Text>
@@ -336,25 +362,31 @@ export default function LedgerScreen() {
               <SmoothPressable
                 onPress={closeModal}
                 dynamicStyle={({ pressed }) => [{ opacity: pressed ? 0.8 : 1 }]}
-                className="flex-1 py-3 rounded-lg items-center border border-border"
+                className="flex-1 py-3 rounded-full items-center border border-border"
               >
                 <Text className="text-foreground font-semibold">Cancel</Text>
               </SmoothPressable>
               <SmoothPressable
                 onPress={handleSubmit}
-                dynamicStyle={({ pressed }) => [
+                className="flex-1"
+                dynamicStyle={({ pressed, hovered }) => [
                   {
-                    backgroundColor: modalDirection === 'credit' ? colors.success : colors.error,
+                    paddingVertical: 12,
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: withAlpha(colors.primary, 0.3),
+                    backgroundColor: withAlpha(colors.primary, hovered ? 0.4 : 0.3),
+                    alignItems: 'center',
                     opacity: pressed ? 0.85 : 1,
                   },
                 ]}
-                className="flex-1 py-3 rounded-lg items-center"
               >
-                <Text className="text-white font-bold">
+                <Text className="font-bold" style={{ color: colors.foreground }}>
                   Add {modalDirection === 'credit' ? 'Credit' : 'Debit'}
                 </Text>
               </SmoothPressable>
             </View>
+          </View>
           </Animated.View>
         </KeyboardAvoidingView>
       )}

@@ -131,7 +131,7 @@ export default function LockScreen() {
       <View className="flex-1 justify-center items-center px-6">
         {/* Header */}
         <View className="mb-12 items-center">
-          <Text className="text-4xl font-bold text-foreground mb-2">Spendee</Text>
+          <Text className="text-4xl font-bold text-foreground mb-2">SpendWise</Text>
           <Text className="text-base text-muted">Secure Access</Text>
         </View>
 

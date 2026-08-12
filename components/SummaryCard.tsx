@@ -18,10 +18,10 @@ export function SummaryCard({
   className,
 }: SummaryCardProps) {
   const variantStyles = {
-    default: 'border-border',
-    success: 'border-success bg-success/5',
-    error: 'border-error bg-error/5',
-    warning: 'border-warning bg-warning/5',
+    default: 'bg-primary/5',
+    success: 'bg-success/10',
+    error: 'bg-error/10',
+    warning: 'bg-warning/10',
   };
 
   const valueColorStyles = {
@@ -34,12 +34,14 @@ export function SummaryCard({
   return (
     <View
       className={cn(
-        'bg-surface rounded-lg p-4 border border-border',
+        'rounded-2xl px-4 py-5 items-center shadow-sm',
         variantStyles[variant],
         className
       )}
     >
-      <Text className="text-sm text-muted font-medium mb-1">{title}</Text>
+      <Text className="text-xs text-muted font-semibold tracking-wide uppercase mb-1">
+        {title}
+      </Text>
       <Text className={cn('text-2xl font-bold', valueColorStyles[variant])}>
         {value}
       </Text>

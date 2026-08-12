@@ -2,19 +2,22 @@ import React, { useState, useMemo } from 'react';
 import { ScrollView, View, Text, TextInput, Alert } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { ScreenContainer } from '@/components/screen-container';
-import { useFinance } from '@/lib/finance-context';
+import { useFinance, useCategories } from '@/lib/finance-context';
 import { StatusBadge } from '@/components/StatusBadge';
 import { formatCurrency, formatDate } from '@/lib/finance-utils';
 import { useSettings } from '@/lib/finance-context';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { SmoothPressable } from '@/components/ui/smooth-pressable';
 import { useColors } from '@/hooks/use-colors';
+import { withAlpha } from '@/lib/color-utils';
 import type { Transaction } from '@/lib/types';
 
 type FilterType = 'all' | 'paid' | 'unpaid';
 
 export default function TransactionsScreen() {
   const { state, dispatch } = useFinance();
+  const { categories } = useCategories();
+  const categoryIcon = (name: string) => categories.find((c) => c.name === name)?.icon ?? '📦';
   const { settings } = useSettings();
   const colors = useColors();
   const [filter, setFilter] = useState<FilterType>('all');
@@ -62,7 +65,8 @@ export default function TransactionsScreen() {
     <ScreenContainer className="bg-background">
       <View className="flex-1">
         {/* Header */}
-        <Animated.View entering={FadeIn.duration(300)} className="px-4 py-4 gap-4">
+        <Animated.View entering={FadeIn.duration(300)}>
+        <View className="px-4 py-4 gap-4">
           <Text className="text-2xl font-bold text-foreground">Transactions</Text>
 
           {/* Search Bar */}
@@ -79,28 +83,36 @@ export default function TransactionsScreen() {
 
           {/* Filter Chips */}
           <View className="flex-row gap-2">
-            {(['all', 'paid', 'unpaid'] as FilterType[]).map((f) => (
-              <SmoothPressable
-                key={f}
-                onPress={() => setFilter(f)}
-                dynamicStyle={({ pressed }) => [
-                  {
-                    backgroundColor: filter === f ? colors.primary : colors.surface,
-                    opacity: pressed ? 0.8 : 1,
-                  },
-                ]}
-                className="px-4 py-2 rounded-full border border-border"
-              >
-                <Text
-                  className={`font-semibold capitalize ${
-                    filter === f ? 'text-white' : 'text-foreground'
-                  }`}
+            {(['all', 'paid', 'unpaid'] as FilterType[]).map((f) => {
+              const selected = filter === f;
+              return (
+                <SmoothPressable
+                  key={f}
+                  onPress={() => setFilter(f)}
+                  dynamicStyle={({ pressed, hovered }) => [
+                    {
+                      paddingHorizontal: 16,
+                      paddingVertical: 8,
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      backgroundColor: selected
+                        ? withAlpha(colors.primary, 0.3)
+                        : hovered
+                          ? withAlpha(colors.primary, 0.12)
+                          : colors.surface,
+                      borderColor: selected ? withAlpha(colors.primary, 0.3) : colors.border,
+                      opacity: pressed ? 0.85 : 1,
+                    },
+                  ]}
                 >
-                  {f}
-                </Text>
-              </SmoothPressable>
-            ))}
+                  <Text className="font-semibold capitalize" style={{ color: colors.foreground }}>
+                    {f}
+                  </Text>
+                </SmoothPressable>
+              );
+            })}
           </View>
+        </View>
         </Animated.View>
 
         {/* Transactions List */}
@@ -112,10 +124,11 @@ export default function TransactionsScreen() {
                 entering={FadeIn.duration(250)}
                 exiting={FadeOut.duration(200)}
                 layout={LinearTransition.duration(250)}
-                className="bg-surface rounded-lg p-4 mb-3 border border-border flex-row justify-between items-center"
+                className="bg-surface rounded-2xl p-4 mb-3 shadow-sm flex-row justify-between items-center"
               >
                 <View className="flex-1">
                   <View className="flex-row items-center gap-2 mb-1">
+                    <Text className="text-base">{categoryIcon(item.category)}</Text>
                     <Text className="font-semibold text-foreground">{item.category}</Text>
                     <StatusBadge status={item.paymentStatus} size="sm" />
                   </View>

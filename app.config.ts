@@ -6,7 +6,7 @@ import type { ExpoConfig } from "expo/config";
 // e.g., "my-app" created at 2024-01-15 10:30:45 -> "space.manus.my.app.t20240115103045"
 // Bundle ID can only contain letters, numbers, and dots
 // Android requires each dot-separated segment to start with a letter
-const rawBundleId = "com.app.Spendee";
+const rawBundleId = "com.app.SpendWise";
 const bundleId =
   rawBundleId
     .replace(/[-_]/g, ".") // Replace hyphens/underscores with dots
@@ -28,8 +28,8 @@ const schemeFromBundleId = `manus${timestamp}`;
 
 const env = {
   // App branding - update these values directly (do not use env vars)
-  appName: "Spendee",
-  appSlug: "Spendee",
+  appName: "SpendWise",
+  appSlug: "SpendWise",
   // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
   logoUrl: "",
@@ -53,12 +53,12 @@ const config: ExpoConfig = {
     "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSFaceIDUsageDescription": "We use Face ID to secure your financial data",
-        "NSLocalNetworkUsageDescription": "Spendee needs local network access"
+        "NSLocalNetworkUsageDescription": "SpendWise needs local network access"
       }
   },
   android: {
     adaptiveIcon: {
-      backgroundColor: "#1e40af",
+      backgroundColor: "#001529",
       foregroundImage: "./assets/images/android-icon-foreground.png",
       backgroundImage: "./assets/images/android-icon-background.png",
       monochromeImage: "./assets/images/android-icon-monochrome.png",
@@ -90,6 +90,7 @@ const config: ExpoConfig = {
     "expo-router",
     "expo-font",
     "expo-web-browser",
+    "@react-native-community/datetimepicker",
     [
       "expo-audio",
       {

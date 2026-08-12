@@ -1,5 +1,5 @@
 /**
- * AsyncStorage CRUD helpers for Spendee
+ * AsyncStorage CRUD helpers for SpendWise
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -10,7 +10,10 @@ import {
   Settings,
   ExclusionSet,
   LockSettings,
+  Category,
+  PaymentMethod,
 } from './types';
+import { DEFAULT_CATEGORIES, DEFAULT_PAYMENT_METHODS } from './default-data';
 
 const STORAGE_KEYS = {
   TRANSACTIONS: 'ft_transactions',
@@ -18,6 +21,8 @@ const STORAGE_KEYS = {
   BUDGETS: 'ft_budgets',
   SETTINGS: 'ft_settings',
   LOCK_SETTINGS: 'ft_lock_settings',
+  CATEGORIES: 'ft_categories',
+  PAYMENT_METHODS: 'ft_payment_methods',
 };
 
 // ============================================================================
@@ -150,6 +155,50 @@ export async function deleteBudget(id: string): Promise<void> {
 }
 
 // ============================================================================
+// Categories
+// ============================================================================
+
+export async function getCategories(): Promise<Category[]> {
+  try {
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.CATEGORIES);
+    return data ? JSON.parse(data) : DEFAULT_CATEGORIES;
+  } catch (error) {
+    console.error('Error reading categories:', error);
+    return DEFAULT_CATEGORIES;
+  }
+}
+
+export async function saveCategories(categories: Category[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
+  } catch (error) {
+    console.error('Error saving categories:', error);
+  }
+}
+
+// ============================================================================
+// Payment Methods
+// ============================================================================
+
+export async function getPaymentMethods(): Promise<PaymentMethod[]> {
+  try {
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.PAYMENT_METHODS);
+    return data ? JSON.parse(data) : DEFAULT_PAYMENT_METHODS;
+  } catch (error) {
+    console.error('Error reading payment methods:', error);
+    return DEFAULT_PAYMENT_METHODS;
+  }
+}
+
+export async function savePaymentMethods(paymentMethods: PaymentMethod[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.PAYMENT_METHODS, JSON.stringify(paymentMethods));
+  } catch (error) {
+    console.error('Error saving payment methods:', error);
+  }
+}
+
+// ============================================================================
 // Settings
 // ============================================================================
 
@@ -250,10 +299,20 @@ export async function clearAllData(): Promise<void> {
       STORAGE_KEYS.BUDGETS,
       STORAGE_KEYS.SETTINGS,
       STORAGE_KEYS.LOCK_SETTINGS,
+      STORAGE_KEYS.CATEGORIES,
+      STORAGE_KEYS.PAYMENT_METHODS,
     ]);
   } catch (error) {
     console.error('Error clearing all data:', error);
   }
+}
+
+/** Resets every payment method's balance to 0 without touching transactions or the method list itself. */
+export async function resetAllBalances(): Promise<PaymentMethod[]> {
+  const paymentMethods = await getPaymentMethods();
+  const reset = paymentMethods.map((pm) => ({ ...pm, balance: 0 }));
+  await savePaymentMethods(reset);
+  return reset;
 }
 
 export async function exportAllData(): Promise<string> {
@@ -262,12 +321,16 @@ export async function exportAllData(): Promise<string> {
     const ledgerEntries = await getLedgerEntries();
     const budgets = await getBudgets();
     const settings = await getSettings();
+    const categories = await getCategories();
+    const paymentMethods = await getPaymentMethods();
 
     const exportData = {
       transactions,
       ledgerEntries,
       budgets,
       settings,
+      categories,
+      paymentMethods,
       exportedAt: new Date().toISOString(),
     };
 
@@ -276,4 +339,53 @@ export async function exportAllData(): Promise<string> {
     console.error('Error exporting data:', error);
     return '';
   }
+}
+
+export interface ImportedData {
+  transactions?: Transaction[];
+  ledgerEntries?: CreditDebitEntry[];
+  budgets?: Budget[];
+  settings?: Settings;
+  categories?: Category[];
+  paymentMethods?: PaymentMethod[];
+}
+
+/**
+ * Parses and applies a previously exported backup. Throws on invalid JSON
+ * or a payload that doesn't look like a SpendWise export, so callers can
+ * show the error to the user before anything is overwritten.
+ */
+export async function importAllData(json: string): Promise<ImportedData> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    throw new Error('That doesn\'t look like valid backup data (invalid JSON).');
+  }
+
+  if (typeof parsed !== 'object' || parsed === null) {
+    throw new Error('That doesn\'t look like valid backup data.');
+  }
+
+  const data = parsed as ImportedData;
+  const hasRecognizedField =
+    Array.isArray(data.transactions) ||
+    Array.isArray(data.ledgerEntries) ||
+    Array.isArray(data.budgets) ||
+    Array.isArray(data.categories) ||
+    Array.isArray(data.paymentMethods) ||
+    (typeof data.settings === 'object' && data.settings !== null);
+
+  if (!hasRecognizedField) {
+    throw new Error('That doesn\'t look like a SpendWise backup.');
+  }
+
+  if (Array.isArray(data.transactions)) await saveTransactions(data.transactions);
+  if (Array.isArray(data.ledgerEntries)) await saveLedgerEntries(data.ledgerEntries);
+  if (Array.isArray(data.budgets)) await saveBudgets(data.budgets);
+  if (data.settings) await saveSettings(data.settings);
+  if (Array.isArray(data.categories)) await saveCategories(data.categories);
+  if (Array.isArray(data.paymentMethods)) await savePaymentMethods(data.paymentMethods);
+
+  return data;
 }

@@ -123,6 +123,31 @@ export function getCurrentMonthYear(): { year: number; month: number } {
 }
 
 /**
+ * Bucket a month's expense transactions into weekly totals (Week 1..N),
+ * for a simple spending-over-time trend chart.
+ */
+export function getWeeklyExpenseTrend(
+  transactions: Transaction[],
+  year: number,
+  month: number
+): { label: string; value: number }[] {
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const weekCount = Math.ceil(daysInMonth / 7);
+  const totals = new Array(weekCount).fill(0);
+
+  transactions
+    .filter((t) => t.type === 'expense')
+    .forEach((t) => {
+      const date = new Date(t.date);
+      if (date.getFullYear() !== year || date.getMonth() !== month) return;
+      const weekIndex = Math.floor((date.getDate() - 1) / 7);
+      totals[weekIndex] += t.amount;
+    });
+
+  return totals.map((value, i) => ({ label: `Wk ${i + 1}`, value }));
+}
+
+/**
  * Format date for display (e.g., "Aug 8, 2026")
  */
 export function formatDate(dateString: string): string {

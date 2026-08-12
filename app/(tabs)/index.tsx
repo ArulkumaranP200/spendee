@@ -4,8 +4,9 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { ScreenContainer } from '@/components/screen-container';
 import { SummaryCard } from '@/components/SummaryCard';
 import { CategoryBreakdownCard } from '@/components/CategoryBreakdownCard';
+import { ExpenseTrendCard } from '@/components/ExpenseTrendCard';
 import { useFinance } from '@/lib/finance-context';
-import { computeSummary, formatCurrency, getCurrentMonthYear, getTransactionsForMonth, calculateNetLedgerPosition } from '@/lib/finance-utils';
+import { computeSummary, formatCurrency, getCurrentMonthYear, getTransactionsForMonth, calculateNetLedgerPosition, getWeeklyExpenseTrend } from '@/lib/finance-utils';
 import { useSettings } from '@/lib/finance-context';
 
 export default function DashboardScreen() {
@@ -21,6 +22,11 @@ export default function DashboardScreen() {
 
   const summary = useMemo(() => computeSummary(monthTransactions), [monthTransactions]);
 
+  const weeklyExpenseTrend = useMemo(
+    () => getWeeklyExpenseTrend(state.transactions, year, month),
+    [state.transactions, year, month]
+  );
+
   // All-time totals, independent of the current month
   const allTimeSummary = useMemo(() => computeSummary(state.transactions), [state.transactions]);
 
@@ -35,7 +41,8 @@ export default function DashboardScreen() {
   return (
     <ScreenContainer className="bg-background">
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="px-4 py-6">
-        <Animated.View entering={FadeIn.duration(300)} className="gap-6">
+        <Animated.View entering={FadeIn.duration(300)}>
+        <View className="gap-6">
           {/* Header */}
           <View className="gap-2">
             <Text className="text-3xl font-bold text-foreground">Dashboard</Text>
@@ -115,6 +122,7 @@ export default function DashboardScreen() {
 
           {/* Breakdown Charts */}
           <View className="gap-3">
+            <ExpenseTrendCard data={weeklyExpenseTrend} currency={currency} />
             <CategoryBreakdownCard
               title="Expenses by Category"
               breakdown={summary.categoryBreakdown}
@@ -158,6 +166,7 @@ export default function DashboardScreen() {
               </View>
             </View>
           </View>
+        </View>
         </Animated.View>
       </ScrollView>
     </ScreenContainer>

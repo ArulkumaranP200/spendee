@@ -67,7 +67,7 @@ jobs:
             cd android && ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
             adb install -r android/app/build/outputs/apk/release/app-release.apk
             adb logcat -c
-            adb shell monkey -p com.app.spendee -c android.intent.category.LAUNCHER 1
+            adb shell monkey -p com.app.spendwise -c android.intent.category.LAUNCHER 1
             sleep 20
             adb logcat -d > logcat_full.txt
             (grep -B 5 -A 80 -E "FATAL EXCEPTION|AndroidRuntime|ReactNativeJS.*[Ee]rror|Caused by" logcat_full.txt || echo "No obvious crash markers found") > logcat_crash.txt

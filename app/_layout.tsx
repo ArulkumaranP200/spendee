@@ -7,7 +7,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 import { Platform } from "react-native";
 import "@/lib/_core/nativewind-pressable";
-import { ThemeProvider } from "@/lib/theme-provider";
+import { ThemeProvider, ThemeSync } from "@/lib/theme-provider";
 import {
   SafeAreaFrameContext,
   SafeAreaInsetsContext,
@@ -82,6 +82,7 @@ export default function RootLayout() {
   const content = (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <FinanceProvider>
+        <ThemeSync />
         <trpc.Provider client={trpcClient} queryClient={queryClient}>
           <QueryClientProvider client={queryClient}>
             {/* Default to hiding native headers so raw route segments don't appear (e.g. "(tabs)", "products/[id]"). */}
@@ -90,6 +91,9 @@ export default function RootLayout() {
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="oauth/callback" />
+              <Stack.Screen name="add" options={{ presentation: "modal", animation: "slide_from_bottom" }} />
+              <Stack.Screen name="categories" />
+              <Stack.Screen name="payment-methods" />
             </Stack>
             <StatusBar style="auto" />
           </QueryClientProvider>

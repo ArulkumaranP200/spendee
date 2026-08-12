@@ -33,6 +33,7 @@ const MAPPING = {
   "chevron.left": "chevron-left",
   "magnifyingglass": "search",
   "ellipsis": "more-vert",
+  "calendar": "event",
   "trash": "delete",
   "pencil": "edit",
   "paperplane.fill": "send",

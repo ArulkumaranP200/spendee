@@ -1,5 +1,5 @@
 /**
- * Shared TypeScript types for Spendee app
+ * Shared TypeScript types for SpendWise app
  */
 
 export type PaymentStatus = 'paid' | 'unpaid';
@@ -26,6 +26,26 @@ export interface Transaction {
   paymentStatus: PaymentStatus;
   isSplit: boolean;
   splits: SplitItem[];
+  paymentMethodId: string | null;
+}
+
+export type CategoryType = 'income' | 'expense' | 'both';
+
+export interface Category {
+  id: string;
+  name: string;
+  icon: string; // emoji
+  type: CategoryType;
+  isDefault: boolean;
+}
+
+export interface PaymentMethod {
+  id: string;
+  name: string;
+  icon: string; // emoji
+  balance: number;
+  isDefault: boolean;
+  createdAt: string;
 }
 
 export interface CreditDebitEntry {

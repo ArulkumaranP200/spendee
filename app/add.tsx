@@ -1,40 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ScrollView, View, Text, TextInput, Switch, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import { ScreenContainer } from '@/components/screen-container';
-import { useTransactions } from '@/lib/finance-context';
+import { useTransactions, useCategories, usePaymentMethods } from '@/lib/finance-context';
 import { useSettings } from '@/lib/finance-context';
 import { validateSplitSum, isValidAmount } from '@/lib/finance-utils';
 import { generateUUID } from '@/lib/finance-utils';
 import { useColors } from '@/hooks/use-colors';
+import { withAlpha } from '@/lib/color-utils';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { SmoothPressable } from '@/components/ui/smooth-pressable';
+import { DateInput } from '@/components/ui/date-input';
 import { SplitItem } from '@/lib/types';
 
-const EXPENSE_CATEGORIES = [
-  'Food & Dining',
-  'Transport',
-  'Shopping',
-  'Bills & Utilities',
-  'Health',
-  'Entertainment',
-  'Education',
-  'Travel',
-  'Personal Care',
-  'Other',
-];
-
-const INCOME_CATEGORIES = [
-  'Salary',
-  'Freelance',
-  'Investment',
-  'Gift',
-  'Refund',
-  'Other',
-];
-
 export default function AddTransactionScreen() {
+  const router = useRouter();
   const { addTransaction } = useTransactions();
   const { settings } = useSettings();
+  const { categories } = useCategories();
+  const { paymentMethods } = usePaymentMethods();
   const colors = useColors();
 
   const [type, setType] = useState<'income' | 'expense'>('expense');
@@ -45,8 +29,13 @@ export default function AddTransactionScreen() {
   const [paymentStatus, setPaymentStatus] = useState<'paid' | 'unpaid'>('paid');
   const [isSplit, setIsSplit] = useState(false);
   const [splits, setSplits] = useState<SplitItem[]>([]);
+  const defaultPaymentMethodId = paymentMethods.find((pm) => pm.isDefault)?.id ?? paymentMethods[0]?.id ?? null;
+  const [paymentMethodId, setPaymentMethodId] = useState<string | null>(defaultPaymentMethodId);
 
-  const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  const availableCategories = useMemo(
+    () => categories.filter((c) => c.type === type || c.type === 'both'),
+    [categories, type]
+  );
 
   const handleAddSplit = () => {
     setSplits([
@@ -101,7 +90,7 @@ export default function AddTransactionScreen() {
       }
     }
 
-    const transaction = addTransaction({
+    addTransaction({
       type,
       amount: numAmount,
       category,
@@ -110,66 +99,68 @@ export default function AddTransactionScreen() {
       paymentStatus,
       isSplit,
       splits,
+      paymentMethodId,
     });
 
-    Alert.alert('Success', 'Transaction added', [
-      {
-        text: 'OK',
-        onPress: () => {
-          // Reset form
-          setAmount('');
-          setCategory('');
-          setNote('');
-          setDate(new Date().toISOString().split('T')[0]);
-          setPaymentStatus('paid');
-          setIsSplit(false);
-          setSplits([]);
-        },
-      },
-    ]);
+    // Navigate back immediately rather than waiting on the alert's OK
+    // button — Alert.alert doesn't render on web, which would otherwise
+    // strand the user on this modal with no way to dismiss it.
+    router.back();
   };
 
   return (
     <ScreenContainer className="bg-background">
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="px-4 py-6">
         <View className="gap-6">
-          <Text className="text-2xl font-bold text-foreground">Add Transaction</Text>
+          <View className="flex-row items-center justify-between">
+            <Text className="text-2xl font-bold text-foreground">Add Transaction</Text>
+            <SmoothPressable onPress={() => router.back()} hitSlop={8} className="p-1">
+              <IconSymbol size={26} name="xmark.circle.fill" color={colors.muted} />
+            </SmoothPressable>
+          </View>
 
           {/* Type Toggle */}
           <View className="gap-2">
             <Text className="text-sm font-semibold text-foreground">Type</Text>
             <View className="flex-row gap-2">
-              {(['income', 'expense'] as const).map((t) => (
-                <SmoothPressable
-                  key={t}
-                  onPress={() => {
-                    setType(t);
-                    setCategory('');
-                  }}
-                  dynamicStyle={({ pressed }) => [
-                    {
-                      backgroundColor: type === t ? colors.primary : colors.surface,
-                      opacity: pressed ? 0.8 : 1,
-                    },
-                  ]}
-                  className="flex-1 py-3 rounded-lg items-center border border-border"
-                >
-                  <Text
-                    className={`font-semibold capitalize ${
-                      type === t ? 'text-white' : 'text-foreground'
-                    }`}
+              {(['income', 'expense'] as const).map((t) => {
+                const selected = type === t;
+                return (
+                  <SmoothPressable
+                    key={t}
+                    onPress={() => {
+                      setType(t);
+                      setCategory('');
+                    }}
+                    className="flex-1"
+                    dynamicStyle={({ pressed, hovered }) => [
+                      {
+                        paddingVertical: 12,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        backgroundColor: selected
+                          ? withAlpha(colors.primary, 0.3)
+                          : hovered
+                            ? withAlpha(colors.primary, 0.12)
+                            : colors.surface,
+                        borderColor: selected ? withAlpha(colors.primary, 0.3) : colors.border,
+                        opacity: pressed ? 0.85 : 1,
+                      },
+                    ]}
                   >
-                    {t}
-                  </Text>
-                </SmoothPressable>
-              ))}
+                    <Text className="font-semibold capitalize" style={{ color: colors.foreground }}>
+                      {t}
+                    </Text>
+                  </SmoothPressable>
+                );
+              })}
             </View>
           </View>
 
           {/* Amount */}
           <View className="gap-2">
             <Text className="text-sm font-semibold text-foreground">Amount</Text>
-            <View className="flex-row items-center bg-surface rounded-lg px-3 py-3 border border-border">
+            <View className="flex-row items-center bg-surface rounded-xl px-3 py-3 border border-border">
               <Text className="text-lg font-semibold text-foreground">{settings.currency}</Text>
               <TextInput
                 value={amount}
@@ -186,40 +177,80 @@ export default function AddTransactionScreen() {
           <View className="gap-2">
             <Text className="text-sm font-semibold text-foreground">Category</Text>
             <View className="flex-row flex-wrap gap-2">
-              {categories.map((cat) => (
-                <SmoothPressable
-                  key={cat}
-                  onPress={() => setCategory(cat)}
-                  dynamicStyle={({ pressed }) => [
-                    {
-                      backgroundColor: category === cat ? colors.primary : colors.surface,
-                      opacity: pressed ? 0.8 : 1,
-                    },
-                  ]}
-                  className="px-4 py-2 rounded-full border border-border"
-                >
-                  <Text
-                    className={`font-semibold text-sm ${
-                      category === cat ? 'text-white' : 'text-foreground'
-                    }`}
+              {availableCategories.map((cat) => {
+                const selected = category === cat.name;
+                return (
+                  <SmoothPressable
+                    key={cat.id}
+                    onPress={() => setCategory(cat.name)}
+                    dynamicStyle={({ pressed, hovered }) => [
+                      {
+                        paddingHorizontal: 16,
+                        paddingVertical: 8,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        backgroundColor: selected
+                          ? withAlpha(colors.primary, 0.3)
+                          : hovered
+                            ? withAlpha(colors.primary, 0.12)
+                            : colors.surface,
+                        borderColor: selected ? withAlpha(colors.primary, 0.3) : colors.border,
+                        opacity: pressed ? 0.85 : 1,
+                      },
+                    ]}
                   >
-                    {cat}
-                  </Text>
-                </SmoothPressable>
-              ))}
+                    <Text className="text-sm">{cat.icon}</Text>
+                    <Text className="font-semibold text-sm" style={{ color: colors.foreground }}>
+                      {cat.name}
+                    </Text>
+                  </SmoothPressable>
+                );
+              })}
             </View>
           </View>
+
+          {/* Payment Method */}
+          {paymentMethods.length > 0 && (
+            <View className="gap-2">
+              <Text className="text-sm font-semibold text-foreground">Payment Method</Text>
+              <View className="flex-row flex-wrap gap-2">
+                {paymentMethods.map((pm) => {
+                  const selected = paymentMethodId === pm.id;
+                  return (
+                    <SmoothPressable
+                      key={pm.id}
+                      onPress={() => setPaymentMethodId(pm.id)}
+                      dynamicStyle={({ pressed, hovered }) => [
+                        {
+                          paddingHorizontal: 16,
+                          paddingVertical: 8,
+                          borderRadius: 999,
+                          borderWidth: 1,
+                          backgroundColor: selected
+                            ? withAlpha(colors.primary, 0.3)
+                            : hovered
+                              ? withAlpha(colors.primary, 0.12)
+                              : colors.surface,
+                          borderColor: selected ? withAlpha(colors.primary, 0.3) : colors.border,
+                          opacity: pressed ? 0.85 : 1,
+                        },
+                      ]}
+                    >
+                      <Text className="text-sm">{pm.icon}</Text>
+                      <Text className="font-semibold text-sm" style={{ color: colors.foreground }}>
+                        {pm.name}
+                      </Text>
+                    </SmoothPressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
 
           {/* Date */}
           <View className="gap-2">
             <Text className="text-sm font-semibold text-foreground">Date</Text>
-            <TextInput
-              value={date}
-              onChangeText={setDate}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.muted}
-              className="bg-surface rounded-lg px-3 py-3 border border-border text-foreground"
-            />
+            <DateInput value={date} onChange={setDate} />
           </View>
 
           {/* Note */}
@@ -232,7 +263,7 @@ export default function AddTransactionScreen() {
               placeholderTextColor={colors.muted}
               multiline
               numberOfLines={3}
-              className="bg-surface rounded-lg px-3 py-3 border border-border text-foreground"
+              className="bg-surface rounded-xl px-3 py-3 border border-border text-foreground"
             />
           </View>
 
@@ -240,27 +271,34 @@ export default function AddTransactionScreen() {
           <View className="gap-2">
             <Text className="text-sm font-semibold text-foreground">Payment Status</Text>
             <View className="flex-row gap-2">
-              {(['paid', 'unpaid'] as const).map((status) => (
-                <SmoothPressable
-                  key={status}
-                  onPress={() => setPaymentStatus(status)}
-                  dynamicStyle={({ pressed }) => [
-                    {
-                      backgroundColor: paymentStatus === status ? colors.success : colors.surface,
-                      opacity: pressed ? 0.8 : 1,
-                    },
-                  ]}
-                  className="flex-1 py-3 rounded-lg items-center border border-border"
-                >
-                  <Text
-                    className={`font-semibold capitalize ${
-                      paymentStatus === status ? 'text-white' : 'text-foreground'
-                    }`}
+              {(['paid', 'unpaid'] as const).map((status) => {
+                const selected = paymentStatus === status;
+                return (
+                  <SmoothPressable
+                    key={status}
+                    onPress={() => setPaymentStatus(status)}
+                    className="flex-1"
+                    dynamicStyle={({ pressed, hovered }) => [
+                      {
+                        paddingVertical: 12,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        backgroundColor: selected
+                          ? withAlpha(colors.primary, 0.3)
+                          : hovered
+                            ? withAlpha(colors.primary, 0.12)
+                            : colors.surface,
+                        borderColor: selected ? withAlpha(colors.primary, 0.3) : colors.border,
+                        opacity: pressed ? 0.85 : 1,
+                      },
+                    ]}
                   >
-                    {status}
-                  </Text>
-                </SmoothPressable>
-              ))}
+                    <Text className="font-semibold capitalize" style={{ color: colors.foreground }}>
+                      {status}
+                    </Text>
+                  </SmoothPressable>
+                );
+              })}
             </View>
           </View>
 
@@ -325,15 +363,20 @@ export default function AddTransactionScreen() {
           {/* Submit Button */}
           <SmoothPressable
             onPress={handleSubmit}
-            dynamicStyle={({ pressed }) => [
+            dynamicStyle={({ pressed, hovered }) => [
               {
-                backgroundColor: pressed ? '#1a3a7a' : '#1e40af',
-                opacity: pressed ? 0.8 : 1,
+                paddingVertical: 16,
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: withAlpha(colors.primary, 0.3),
+                backgroundColor: hovered ? withAlpha(colors.primary, 0.4) : withAlpha(colors.primary, 0.3),
+                opacity: pressed ? 0.85 : 1,
               },
             ]}
-            className="py-4 rounded-lg items-center"
           >
-            <Text className="text-white font-bold text-lg">Add Transaction</Text>
+            <Text className="font-bold text-lg" style={{ color: colors.foreground }}>
+              Add Transaction
+            </Text>
           </SmoothPressable>
         </View>
       </ScrollView>

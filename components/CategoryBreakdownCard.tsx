@@ -50,10 +50,8 @@ export function CategoryBreakdownCard({
   const valueTextClass = accentVariant === 'success' ? 'text-success' : 'text-error';
 
   return (
-    <Animated.View
-      entering={FadeIn.duration(350)}
-      className="bg-surface rounded-lg p-4 border border-border gap-4"
-    >
+    <Animated.View entering={FadeIn.duration(350)}>
+    <View className="bg-surface rounded-2xl p-4 shadow-sm gap-4">
       <Text className="text-sm font-semibold text-foreground">{title}</Text>
 
       {total > 0 ? (
@@ -90,6 +88,7 @@ export function CategoryBreakdownCard({
       ) : (
         <Text className="text-sm text-muted">{emptyMessage}</Text>
       )}
+    </View>
     </Animated.View>
   );
 }

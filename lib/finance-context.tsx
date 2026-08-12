@@ -10,6 +10,8 @@ import {
   Settings,
   ExclusionSet,
   LockSettings,
+  Category,
+  PaymentMethod,
 } from './types';
 import * as storage from './storage';
 import { generateUUID, getTodayISO } from './finance-utils';
@@ -20,6 +22,8 @@ export interface FinanceState {
   budgets: Budget[];
   settings: Settings;
   lockSettings: LockSettings;
+  categories: Category[];
+  paymentMethods: PaymentMethod[];
   excludedIds: string[]; // Session-only exclusions
   isLoading: boolean;
 }
@@ -45,6 +49,13 @@ export type FinanceAction =
   | { type: 'TOGGLE_EXCLUDED_ID'; payload: string }
   | { type: 'CLEAR_EXCLUDED_IDS' }
   | { type: 'SET_LOCK_SETTINGS'; payload: LockSettings }
+  | { type: 'SET_CATEGORIES'; payload: Category[] }
+  | { type: 'ADD_CATEGORY'; payload: Category }
+  | { type: 'DELETE_CATEGORY'; payload: string }
+  | { type: 'SET_PAYMENT_METHODS'; payload: PaymentMethod[] }
+  | { type: 'ADD_PAYMENT_METHOD'; payload: PaymentMethod }
+  | { type: 'UPDATE_PAYMENT_METHOD'; payload: { id: string; updates: Partial<PaymentMethod> } }
+  | { type: 'DELETE_PAYMENT_METHOD'; payload: string }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'INITIALIZE'; payload: Partial<FinanceState> };
 
@@ -60,17 +71,33 @@ const initialState: FinanceState = {
     biometricEnabled: false,
     lastUnlocked: null,
   },
+  categories: [],
+  paymentMethods: [],
   excludedIds: [],
   isLoading: true,
 };
+
+/** balance delta a transaction applies to its payment method: income adds, expense subtracts */
+function transactionBalanceDelta(transaction: Transaction): number {
+  return transaction.type === 'income' ? transaction.amount : -transaction.amount;
+}
 
 function financeReducer(state: FinanceState, action: FinanceAction): FinanceState {
   switch (action.type) {
     case 'SET_TRANSACTIONS':
       return { ...state, transactions: action.payload };
 
-    case 'ADD_TRANSACTION':
-      return { ...state, transactions: [...state.transactions, action.payload] };
+    case 'ADD_TRANSACTION': {
+      const transaction = action.payload;
+      let paymentMethods = state.paymentMethods;
+      if (transaction.paymentMethodId) {
+        const delta = transactionBalanceDelta(transaction);
+        paymentMethods = paymentMethods.map((pm) =>
+          pm.id === transaction.paymentMethodId ? { ...pm, balance: pm.balance + delta } : pm
+        );
+      }
+      return { ...state, transactions: [...state.transactions, transaction], paymentMethods };
+    }
 
     case 'UPDATE_TRANSACTION': {
       const { id, updates } = action.payload;
@@ -82,10 +109,19 @@ function financeReducer(state: FinanceState, action: FinanceAction): FinanceStat
       };
     }
 
-    case 'DELETE_TRANSACTION':
+    case 'DELETE_TRANSACTION': {
+      const removed = state.transactions.find((t) => t.id === action.payload);
+      let paymentMethods = state.paymentMethods;
+      if (removed?.paymentMethodId) {
+        const delta = -transactionBalanceDelta(removed);
+        paymentMethods = paymentMethods.map((pm) =>
+          pm.id === removed.paymentMethodId ? { ...pm, balance: pm.balance + delta } : pm
+        );
+      }
       return {
         ...state,
         transactions: state.transactions.filter((t) => t.id !== action.payload),
+        paymentMethods,
         // Also remove from exclusion sets if present
         settings: {
           ...state.settings,
@@ -95,6 +131,7 @@ function financeReducer(state: FinanceState, action: FinanceAction): FinanceStat
           })),
         },
       };
+    }
 
     case 'SET_LEDGER_ENTRIES':
       return { ...state, ledgerEntries: action.payload };
@@ -181,6 +218,37 @@ function financeReducer(state: FinanceState, action: FinanceAction): FinanceStat
     case 'SET_LOCK_SETTINGS':
       return { ...state, lockSettings: action.payload };
 
+    case 'SET_CATEGORIES':
+      return { ...state, categories: action.payload };
+
+    case 'ADD_CATEGORY':
+      return { ...state, categories: [...state.categories, action.payload] };
+
+    case 'DELETE_CATEGORY':
+      return { ...state, categories: state.categories.filter((c) => c.id !== action.payload) };
+
+    case 'SET_PAYMENT_METHODS':
+      return { ...state, paymentMethods: action.payload };
+
+    case 'ADD_PAYMENT_METHOD':
+      return { ...state, paymentMethods: [...state.paymentMethods, action.payload] };
+
+    case 'UPDATE_PAYMENT_METHOD': {
+      const { id, updates } = action.payload;
+      return {
+        ...state,
+        paymentMethods: state.paymentMethods.map((pm) =>
+          pm.id === id ? { ...pm, ...updates } : pm
+        ),
+      };
+    }
+
+    case 'DELETE_PAYMENT_METHOD':
+      return {
+        ...state,
+        paymentMethods: state.paymentMethods.filter((pm) => pm.id !== action.payload),
+      };
+
     case 'SET_LOADING':
       return { ...state, isLoading: action.payload };
 
@@ -195,6 +263,7 @@ function financeReducer(state: FinanceState, action: FinanceAction): FinanceStat
 interface FinanceContextType {
   state: FinanceState;
   dispatch: React.Dispatch<FinanceAction>;
+  reloadFromStorage: () => Promise<void>;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -202,35 +271,40 @@ const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 export function FinanceProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(financeReducer, initialState);
 
-  // Load data from storage on mount
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [transactions, ledgerEntries, budgets, settings, lockSettings] = await Promise.all([
+  const reloadFromStorage = async () => {
+    try {
+      const [transactions, ledgerEntries, budgets, settings, lockSettings, categories, paymentMethods] =
+        await Promise.all([
           storage.getTransactions(),
           storage.getLedgerEntries(),
           storage.getBudgets(),
           storage.getSettings(),
           storage.getLockSettings(),
+          storage.getCategories(),
+          storage.getPaymentMethods(),
         ]);
 
-        dispatch({
-          type: 'INITIALIZE',
-          payload: {
-            transactions,
-            ledgerEntries,
-            budgets,
-            settings,
-            lockSettings,
-          },
-        });
-      } catch (error) {
-        console.error('Error loading data:', error);
-        dispatch({ type: 'SET_LOADING', payload: false });
-      }
-    };
+      dispatch({
+        type: 'INITIALIZE',
+        payload: {
+          transactions,
+          ledgerEntries,
+          budgets,
+          settings,
+          lockSettings,
+          categories,
+          paymentMethods,
+        },
+      });
+    } catch (error) {
+      console.error('Error loading data:', error);
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
 
-    loadData();
+  // Load data from storage on mount
+  useEffect(() => {
+    reloadFromStorage();
   }, []);
 
   // Persist transactions when they change
@@ -268,8 +342,22 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     }
   }, [state.lockSettings, state.isLoading]);
 
+  // Persist categories when they change
+  useEffect(() => {
+    if (!state.isLoading) {
+      storage.saveCategories(state.categories).catch(console.error);
+    }
+  }, [state.categories, state.isLoading]);
+
+  // Persist payment methods when they change
+  useEffect(() => {
+    if (!state.isLoading) {
+      storage.savePaymentMethods(state.paymentMethods).catch(console.error);
+    }
+  }, [state.paymentMethods, state.isLoading]);
+
   return (
-    <FinanceContext.Provider value={{ state, dispatch }}>
+    <FinanceContext.Provider value={{ state, dispatch, reloadFromStorage }}>
       {children}
     </FinanceContext.Provider>
   );
@@ -405,6 +493,56 @@ export function useLockSettings() {
         type: 'SET_LOCK_SETTINGS',
         payload: { ...state.lockSettings, ...updates },
       });
+    },
+  };
+}
+
+export function useCategories() {
+  const { state, dispatch } = useFinance();
+
+  return {
+    categories: state.categories,
+    addCategory: (category: Omit<Category, 'id' | 'isDefault'>) => {
+      const newCategory: Category = {
+        ...category,
+        id: generateUUID(),
+        isDefault: false,
+      };
+      dispatch({ type: 'ADD_CATEGORY', payload: newCategory });
+      return newCategory;
+    },
+    deleteCategory: (id: string) => {
+      const category = state.categories.find((c) => c.id === id);
+      if (category?.isDefault) return false;
+      dispatch({ type: 'DELETE_CATEGORY', payload: id });
+      return true;
+    },
+  };
+}
+
+export function usePaymentMethods() {
+  const { state, dispatch } = useFinance();
+
+  return {
+    paymentMethods: state.paymentMethods,
+    addPaymentMethod: (method: Omit<PaymentMethod, 'id' | 'createdAt' | 'isDefault'>) => {
+      const newMethod: PaymentMethod = {
+        ...method,
+        id: generateUUID(),
+        createdAt: getTodayISO(),
+        isDefault: false,
+      };
+      dispatch({ type: 'ADD_PAYMENT_METHOD', payload: newMethod });
+      return newMethod;
+    },
+    updatePaymentMethodBalance: (id: string, balance: number) => {
+      dispatch({ type: 'UPDATE_PAYMENT_METHOD', payload: { id, updates: { balance } } });
+    },
+    deletePaymentMethod: (id: string) => {
+      const method = state.paymentMethods.find((pm) => pm.id === id);
+      if (method?.isDefault) return false;
+      dispatch({ type: 'DELETE_PAYMENT_METHOD', payload: id });
+      return true;
     },
   };
 }

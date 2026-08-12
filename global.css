@@ -1,3 +1,14 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* React Native Web renders TextInput as <input>/<textarea> — kill the
+   browser's default focus ring so focusing a field doesn't draw a black
+   border around it. */
+input:focus,
+textarea:focus,
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  box-shadow: none;
+}

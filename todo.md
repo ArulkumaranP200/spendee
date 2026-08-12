@@ -1,4 +1,4 @@
-# Spendee - Development TODO
+# SpendWise - Development TODO
 
 ## Completed Phases
 - [x] Phase 1: Project scaffold and initialization
